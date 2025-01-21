@@ -1,0 +1,217 @@
+---
+- name: Create security group for SSH and App API
+  amazon.aws.ec2_security_group:
+    name: allow-ssh-8181
+    description: "Allow SSH and port 8181 for app"
+    region: eu-central-1
+    rules:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 8181
+        to_port: 8181
+        cidr_ip: 0.0.0.0/0
+    state: present
+
+- name: Launch EC2 instance for dev
+  amazon.aws.ec2_instance:
+    name: dev_host1
+    key_name: my-ssh-key
+    instance_type: t3.medium
+    image_id: ami-0ac004d02e671200e
+    security_groups: ["allow-ssh-8181"]
+    region: eu-central-1
+    wait: yes
+    count: 1
+    state: present
+  register: dev_instance
+
+- name: Launch EC2 instance for staging
+  amazon.aws.ec2_instance:
+    name: staging_host2
+    key_name: my-ssh-key
+    instance_type: t3.medium
+    image_id: ami-0ac004d02e671200e
+    security_groups: ["allow-ssh-8181"]
+    region: eu-central-1
+    wait: yes
+    count: 1
+    state: present
+  register: staging_instance
+
+#- name: Debug EC2 instances for Dev
+#  debug:
+#    var: dev_instance.instances
+
+- name: Wait for SSH to become available on Dev instance
+  wait_for:
+    host: "{{ dev_instance.instances[0].public_ip_address }}"
+    port: 22
+    timeout: 300  # Wait up to 5 minutes
+    state: started
+  delegate_to: localhost
+
+- name: Wait for SSH to become available on Staging instance
+  wait_for:
+    host: "{{ staging_instance.instances[0].public_ip_address }}"
+    port: 22
+    timeout: 300  # Wait up to 5 minutes
+    state: started
+  delegate_to: localhost
+
+- name: Update Dev Inventory File
+  copy:
+    dest: "{{ playbook_dir }}/../inventories/dev/hosts.yml"
+    content: |
+      all:
+        children:
+          dev:
+            hosts:
+              dev_host1:
+                ansible_host: {{ dev_instance.instances[0].public_ip_address }}
+                ansible_user: ubuntu
+                ansible_ssh_private_key_file: ~/.ssh/my-ssh-key.pem
+                ansible_python_interpreter: /usr/bin/python3
+  delegate_to: localhost
+
+- name: Update Staging Inventory File
+  copy:
+    dest: "{{ playbook_dir }}/../inventories/staging/hosts.yml"
+    content: |
+      all:
+        children:
+          staging:
+            hosts:
+              staging_host2:
+                ansible_host: {{ staging_instance.instances[0].public_ip_address }}
+                ansible_user: ubuntu
+                ansible_ssh_private_key_file: ~/.ssh/my-ssh-key.pem
+                ansible_python_interpreter: /usr/bin/python3
+  delegate_to: localhost
+
+- name: Create a 5GB EBS volume for secret-keys-volume on Dev
+  ec2_vol:
+    instance: "{{ dev_instance.instances[0].instance_id }}"
+    volume_size: 5
+    volume_type: gp3
+    device_name: /dev/xvdf
+    state: present
+  register: dev_ebs_volume
+
+- name: Create a 5GB EBS volume for secret-keys-volume on Staging
+  ec2_vol:
+    instance: "{{ staging_instance.instances[0].instance_id }}"
+    volume_size: 5
+    volume_type: gp3
+    device_name: /dev/xvdf
+    state: present
+  register: staging_ebs_volume
+
+- name: Print updated inventory host details
+  debug:
+    msg:
+      - "Host: {{ inventory_hostname }}"
+      - "IP: {{ ansible_host }}"
+      - "User: {{ ansible_user }}"
+  delegate_to: dev_host1
+
+- name: Refresh inventory after provisioning
+  meta: refresh_inventory
+
+- name: Verify the EBS volume is attached to the Dev instance
+  amazon.aws.ec2_vol_info:
+    filters:
+      attachment.instance-id: "{{ dev_instance.instances[0].instance_id }}"
+  register: dev_volume_info
+
+#- name: Debug EBS volume information for Dev
+#  debug:
+#    var: dev_volume_info
+
+- name: Get attached block devices
+  shell: lsblk -n -o NAME,SIZE | grep '5G' | awk '{print $1}'
+  register: dev_volume_device_name
+  delegate_to: dev_host1
+  become: true
+
+#- debug:
+#    msg: "Detected device name for volume: /dev/{{ dev_volume_device_name.stdout }}"
+
+- name: Format the EBS volume if not already formatted
+  community.general.filesystem:
+    fstype: ext4
+    dev: "/dev/{{ dev_volume_device_name.stdout }}"
+    state: present
+  when: dev_volume_device_name.stdout is defined and dev_volume_device_name.stdout != ""
+  delegate_to: dev_host1
+  become: true
+
+- name: Verify the EBS volume is attached to the Staging instance
+  amazon.aws.ec2_vol_info:
+    filters:
+      attachment.instance-id: "{{ staging_instance.instances[0].instance_id }}"
+  register: staging_volume_info
+
+#- name: Debug EBS volume information for Staging
+#  debug:
+#    var: staging_volume_info
+
+- name: Get attached block devices
+  shell: lsblk -n -o NAME,SIZE | grep '5G' | awk '{print $1}'
+  register: staging_volume_device_name
+  delegate_to: staging_host2
+  become: true
+
+#- debug:
+#    msg: "Detected device name for volume: /dev/{{ staging_volume_device_name.stdout }}"
+
+- name: Format the EBS volume if not already formatted
+  community.general.filesystem:
+    fstype: ext4
+    dev: "/dev/{{ staging_volume_device_name.stdout }}"
+    state: present
+  when: staging_volume_device_name.stdout is defined and staging_volume_device_name.stdout != ""
+  delegate_to: staging_host2
+  become: true
+
+- name: Create mount directory on Dev for EBS volume
+  ansible.builtin.file:
+    path: /var/lib/docker/volumes/secret-keys-volume/_data
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  delegate_to: dev_host1
+  become: true
+
+- name: Create mount directory on Staging for EBS volume
+  ansible.builtin.file:
+    path: /var/lib/docker/volumes/secret-keys-volume/_data
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  delegate_to: staging_host2
+  become: true
+
+- name: Mount EBS volume on Dev
+  mount:
+    path: /var/lib/docker/volumes/secret-keys-volume/_data
+    src: "/dev/{{ dev_volume_device_name.stdout }}"
+    fstype: ext4
+    opts: defaults
+    state: mounted
+  delegate_to: dev_host1
+  become: true
+
+- name: Mount EBS volume on Staging
+  mount:
+    path: /var/lib/docker/volumes/secret-keys-volume/_data
+    src: "/dev/{{ staging_volume_device_name.stdout }}"
+    fstype: ext4
+    opts: defaults
+    state: mounted
+  delegate_to: staging_host2
+  become: true

@@ -1,0 +1,21 @@
+---
+- name: Debug Variables
+  hosts: dev_host1, staging_host2
+  tasks:
+    - name: Load variables manually from host_vars
+      include_vars:
+        file: "host_vars/{{ inventory_hostname }}.yml"
+
+    - name: Debug tuning variable
+      debug:
+        msg:
+          app_image: "{{ app_image }}"
+          app_instances: "{{ app_instances }}"
+          app_memory_limit: "{{ app_memory_limit }}"
+          app_cpu_limit: "{{ app_cpu_limit }}"
+          tuning: "{{ tuning }}"
+          debug: "{{ debug }}"
+          external_url: "{{ external_url }}"
+          client: "{{ client }}"
+          interaction_mode: "{{ interaction_mode }}"
+          device_id: "{{ device_id }}"

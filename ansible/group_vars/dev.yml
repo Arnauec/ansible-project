@@ -1,0 +1,11 @@
+---
+app_image: "nginx:latest"  # Replace with the actual image if needed
+app_instances: 3
+app_memory_limit: "1g"
+app_cpu_limit: "0.3"
+tuning: true
+debug: true
+external_url: "https://dev/approve"
+client: "dev_client_external"
+interaction_mode: "API"
+device_id: 2346456

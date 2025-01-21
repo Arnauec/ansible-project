@@ -1,0 +1,14 @@
+---
+# Variables specific to dev_host1
+tuning: true
+debug: true
+external_url: "https://dev/approve"
+client: "dev_client_external"
+interaction_mode: "API"
+device_id: 2346456
+app_image: "nginx:latest"
+app_memory_limit: "1g"
+app_cpu_limit: "0.3"
+app_instances: 3
+api_port: 8181
+secret_volume: "secret-keys-volume"

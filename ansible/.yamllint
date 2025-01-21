@@ -1,0 +1,12 @@
+---
+extends: default
+
+rules:
+  indentation:  # Enforces consistent indentation
+    spaces: 2
+  line-length:  # Restricts line length
+    max: 120
+  trailing-spaces:  # Prevents trailing spaces
+    level: error
+  document-start:  # Enforces use of "---" at the start of YAML files
+    level: error

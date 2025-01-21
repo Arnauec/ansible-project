@@ -1,0 +1,11 @@
+---
+- name: Open required ports
+  amazon.aws.ec2_security_group:
+    group_name: allow-ssh-8181
+    region: eu-central-1
+    rules:
+      - proto: tcp
+        from_port: 8181
+        to_port: 8183
+        cidr_ip: 0.0.0.0/0
+    state: present

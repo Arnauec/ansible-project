@@ -1,0 +1,14 @@
+---
+# Variables specific to staging_host2
+tuning: true
+debug: false
+external_url: "https://staging/approve"
+client: "staging_client_external"
+interaction_mode: "API"
+device_id: 32443532
+app_image: "nginx:latest"
+app_memory_limit: "1g"
+app_cpu_limit: "0.3"
+app_instances: 3
+api_port: 8181
+secret_volume: "secret-keys-volume"

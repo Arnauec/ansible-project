@@ -1,0 +1,28 @@
+services:
+{% for i in range(app_instances) %}
+  app{{ i + 1 }}:
+    image: "{{ app_image }}"
+    deploy:
+      resources:
+        limits:
+          memory: "{{ app_memory_limit }}"
+          cpus: "{{ app_cpu_limit }}"
+    volumes:
+      - secret-keys-volume:/app/secrets
+    environment:
+      TUNING: "{{ tuning | lower }}"
+      DEBUG: "{{ debug | lower }}"
+      EXTERNAL_URL: "{{ external_url }}"
+      CLIENT: "{{ client }}"
+      INTERACTION_MODE: "{{ interaction_mode }}"
+      DEVICE_ID: "{{ device_id }}"
+    ports:
+      - "{{ 8181 + i }}:8181"
+{% endfor %}
+volumes:
+  secret-keys-volume:
+      driver: local
+      driver_opts:
+        type: none
+        device: /var/lib/docker/volumes/secret-keys-volume/_data
+        o: bind

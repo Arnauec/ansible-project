@@ -1,0 +1,6 @@
+---
+app_image: "nginx:latest"
+secret_volume: "secret-keys-volume"
+memory_limit: "1GB"
+cpu_limit: "0.3"
+api_port: 8181

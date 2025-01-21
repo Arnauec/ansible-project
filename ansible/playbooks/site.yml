@@ -1,0 +1,64 @@
+---
+- name: Provision EC2 Instances
+  hosts: localhost
+  roles:
+    - provision
+
+- name: Refresh inventory after provisioning
+  hosts: localhost
+  tasks:
+    - meta: refresh_inventory
+
+- name: Configure and Deploy Applications on Dev and Staging
+  hosts: dev_host1, staging_host2
+  become: true
+  tasks:
+    - name: Debug host details
+      debug:
+        msg: "Connecting to {{ inventory_hostname }} at {{ ansible_host }}"
+
+    - name: Install Docker
+      include_role:
+        name: geerlingguy.docker
+
+    - name: Create Docker Compose directory
+      ansible.builtin.file:
+        path: /home/ubuntu/docker-compose
+        state: directory
+        mode: "0755"
+
+    - name: Debug Docker Compose Variables
+      debug:
+        msg:
+          app_image: "{{ app_image }}"
+          app_instances: "{{ app_instances }}"
+          app_memory_limit: "{{ app_memory_limit }}"
+          app_cpu_limit: "{{ app_cpu_limit }}"
+          tuning: "{{ tuning }}"
+          debug: "{{ debug }}"
+          external_url: "{{ external_url }}"
+          client: "{{ client }}"
+          interaction_mode: "{{ interaction_mode }}"
+          device_id: "{{ device_id }}"
+
+
+    - name: Copy Docker Compose template
+      template:
+        src: templates/docker-compose.yml.j2
+        dest: /home/ubuntu/docker-compose/docker-compose.yml
+        mode: "0644"
+
+    - name: Deploy containers using Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: /home/ubuntu/docker-compose/
+        state: present
+        pull: always
+
+    - name: Ensure Docker Compose instances are running
+      shell: "docker ps | grep app"
+      register: docker_ps_output
+      changed_when: false
+
+    - name: Debug running Docker containers
+      debug:
+        var: docker_ps_output.stdout_lines

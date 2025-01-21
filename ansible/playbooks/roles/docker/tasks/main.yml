@@ -1,0 +1,23 @@
+---
+- name: Ensure Docker is installed
+  include_role:
+    name: geerlingguy.docker
+
+- name: Create docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/docker-compose.yml
+
+- name: Start Docker Compose services
+  command: docker-compose up -d
+  args:
+    chdir: /opt
+
+- name: Ensure Docker Compose instances are running
+  shell: |
+    docker ps --filter "name=app" --format "{{ .Names }}: {{ .State }}"
+  register: docker_ps_output
+
+- name: Debug running Docker containers
+  debug:
+    var: docker_ps_output.stdout_lines
