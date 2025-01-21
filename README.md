@@ -162,7 +162,7 @@ After deployment, validate the application:
    ```
 
 2. Test the application endpoints for **dev** and **staging**:
-    - Dev: `http://<dev_instance_ip>:8181`
-    - Staging: `http://<staging_instance_ip>:8181`
+    - Dev: `http://<dev_instance_ip>:8181/approve`
+    - Staging: `http://<staging_instance_ip>:8181/approve`
 
 3. Confirm the persistent volume (`secret-keys-volume`) is correctly mounted and persists data across container restarts.
