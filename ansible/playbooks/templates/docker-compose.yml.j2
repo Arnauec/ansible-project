@@ -9,6 +9,7 @@ services:
           cpus: "{{ app_cpu_limit }}"
     volumes:
       - secret-keys-volume:/app/secrets
+      - /etc/ansible/templates/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     environment:
       TUNING: "{{ tuning | lower }}"
       DEBUG: "{{ debug | lower }}"

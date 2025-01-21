@@ -109,14 +109,6 @@
     state: present
   register: staging_ebs_volume
 
-- name: Print updated inventory host details
-  debug:
-    msg:
-      - "Host: {{ inventory_hostname }}"
-      - "IP: {{ ansible_host }}"
-      - "User: {{ ansible_user }}"
-  delegate_to: dev_host1
-
 - name: Refresh inventory after provisioning
   meta: refresh_inventory
 
@@ -213,5 +205,45 @@
     fstype: ext4
     opts: defaults
     state: mounted
+  delegate_to: staging_host2
+  become: true
+
+- name: Create destination directory for nginx.conf on Dev
+  file:
+    path: /etc/ansible/templates
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  delegate_to: dev_host1
+  become: true
+
+- name: Create destination directory for nginx.conf on staging
+  file:
+    path: /etc/ansible/templates
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  delegate_to: staging_host2
+  become: true
+
+- name: Copy nginx.conf to dev
+  copy:
+    src: "{{ playbook_dir }}/templates/nginx.conf"
+    dest: /etc/ansible/templates/nginx.conf
+    owner: root
+    group: root
+    mode: 0644
+  delegate_to: dev_host1
+  become: true
+
+- name: Copy nginx.conf to the staging
+  copy:
+    src: "{{ playbook_dir }}/templates/nginx.conf"
+    dest: /etc/ansible/templates/nginx.conf
+    owner: root
+    group: root
+    mode: 0644
   delegate_to: staging_host2
   become: true
